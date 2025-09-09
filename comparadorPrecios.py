@@ -21,7 +21,7 @@ class ComparadorPreciosApp:
         frame_top.grid_columnconfigure(0, weight=1)
         frame_top.grid_columnconfigure(1, weight=1)
 
-        tk.Button(frame_top, text="Cargar Excel Actual", command=self.cargar_actual, bg="gray20", fg="white").grid(row=0, column=0, padx=5, sticky="e")
+        tk.Button(frame_top, text="Cargar Excel Viejo", command=self.cargar_actual, bg="gray20", fg="white").grid(row=0, column=0, padx=5, sticky="e")
         self.label_actual = tk.Label(frame_top, text="No cargado", bg="black", fg="white")
         self.label_actual.grid(row=0, column=1, padx=5, sticky="w")
 
@@ -119,6 +119,16 @@ class ComparadorPreciosApp:
                 return "No calculado"
         df["diferencia"] = df.apply(calc_diff, axis=1)
 
+        # Formatear números
+        def format_number(val):
+            if isinstance(val, (int, float)):
+                return f"{int(val):,}".replace(",", ".")
+            return val
+
+        df["precio_viejo"] = df["precio_viejo"].apply(format_number)
+        df["precio_nuevo"] = df["precio_nuevo"].apply(format_number)
+        df["diferencia"] = df["diferencia"].apply(format_number)
+
         # Limpiar tabla
         for row in self.tabla.get_children():
             self.tabla.delete(row)
@@ -127,14 +137,22 @@ class ComparadorPreciosApp:
         subio = bajo = igual = 0
         for _, row in df.iterrows():
             tag = ""
-            if isinstance(row["diferencia"], str):
+            if isinstance(row["diferencia"], str) and row["diferencia"] == "No calculado":
                 tag = "igual"
-            elif row["precio_nuevo"] > row["precio_viejo"]:
-                tag = "subio"; subio += 1
-            elif row["precio_nuevo"] < row["precio_viejo"]:
-                tag = "bajo"; bajo += 1
+            elif row["diferencia"] != "No calculado" and row["precio_nuevo"] != "No encontrado" and row["precio_viejo"] != "No encontrado":
+                try:
+                    precio_nuevo = float(str(row["precio_nuevo"]).replace(".", ""))
+                    precio_viejo = float(str(row["precio_viejo"]).replace(".", ""))
+                    if precio_nuevo > precio_viejo:
+                        tag = "subio"; subio += 1
+                    elif precio_nuevo < precio_viejo:
+                        tag = "bajo"; bajo += 1
+                    else:
+                        tag = "igual"; igual += 1
+                except:
+                    tag = "igual"
             else:
-                tag = "igual"; igual += 1
+                tag = "igual"
 
             self.tabla.insert("", tk.END, values=(row["codigo"], row["descripcion_viejo"] if row["descripcion_viejo"] != "No encontrado" else row["descripcion_nuevo"], row["precio_viejo"], row["precio_nuevo"], row["diferencia"]), tags=(tag,))
 
